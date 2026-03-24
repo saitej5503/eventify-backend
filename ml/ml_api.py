@@ -4,92 +4,72 @@ import joblib
 
 app = Flask(__name__)
 
-# load trained model
-model = joblib.load("ml/model.pkl")
+# Load model ONCE
+model = joblib.load("model.pkl")
 
-# expected columns from training
 columns = [
 "user_interest_dance",
 "user_interest_music",
 "user_interest_sports",
 "user_interest_tech",
+"user_interest_cultural",
 "event_category_dance",
 "event_category_music",
 "event_category_sports",
 "event_category_tech",
+"event_category_cultural",
 "location_chennai"
 ]
 
-'''''
+@app.route("/")
+def home():
+    return "ML API Running"
+
 @app.route("/recommend", methods=["POST"])
 def recommend():
+    try:
+        data = request.json
 
-    data = request.json
+        user_interests = data.get("user_interests", [])
+        location = data.get("location", "chennai")
 
-    df = pd.DataFrame([data])
-    df = pd.get_dummies(df)
+        interest = user_interests[0] if user_interests else "music"
 
-    for col in columns:
-        if col not in df:
-            df[col] = 0
+        row = {
+            "user_interest": interest,
+            "event_category": interest,
+            "location": location
+        }
 
-    df = df[columns]
+        df = pd.DataFrame([row])
+        df = pd.get_dummies(df)
 
-    prediction = model.predict(df)[0]
+        for col in columns:
+            if col not in df:
+                df[col] = 0
 
-    categories = {
-        0: "sports",
-        1: "music",
-        2: "dance",
-        3: "tech"
-    }
+        df = df[columns]
 
-    predicted_category = categories.get(prediction, "tech")
+        prediction = model.predict(df)[0]
 
-    return jsonify({
-        "recommended_category": predicted_category
-    })
-''' 
-@app.route("/recommend", methods=["POST"])
-def recommend():
+        categories = {
+            0: "sports",
+            1: "music",
+            2: "dance",
+            3: "tech",
+            4: "cultural"
+        }
 
-    data = request.json
+        predicted_category = categories.get(prediction, "tech")
 
-    user_interests = data.get("user_interests", [])
-    location = data.get("location")
+        return jsonify({
+            "recommended_categories": [predicted_category]
+        })
 
-    if not user_interests:
-        user_interests = ["music"]
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    interest = user_interests[0]
 
-    row = {
-        "user_interest": interest,
-        "event_category": interest,
-        "location": location
-    }
-
-    df = pd.DataFrame([row])
-    df = pd.get_dummies(df)
-
-    for col in columns:
-        if col not in df:
-            df[col] = 0
-
-    df = df[columns]
-
-    prediction = model.predict(df)[0]
-
-    categories = {
-        0: "sports",
-        1: "music",
-        2: "dance",
-        3: "tech"
-    }
-
-    predicted_category = categories.get(prediction, "tech")
-
-    return jsonify({
-        "recommended_categories": [predicted_category]
-    })
-app.run(port=6000)
+# IMPORTANT FOR RENDER
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
