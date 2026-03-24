@@ -1,8 +1,9 @@
 import express from "express";
 import Event from "../models/Event.js";
 import axios from "axios";
+import { recommendEvents } from "../controllers/eventController.js";
 const router = express.Router();
-
+router.post("/recommend", recommendEvents);
 /* Get all events */
 router.get("/", async (req, res) => {
   try {
@@ -52,22 +53,24 @@ router.post("/recommend", async (req, res) => {
 
   try {
 
-    const { user_interest, event_category, location } = req.body;
+  const { user_interest, location } = req.body;
 
-    const response = await axios.post("http://localhost:6000/recommend", {
-      user_interest,
-      event_category,
-      location
-    });
+  const response = await axios.post(
+    "https://eventify-ml-1.onrender.com/recommend",
+    {
+      user_interests: [user_interest],
+      location: location
+    },
+    { timeout: 10000 }
+  );
 
-    res.json(response.data);
+  const categories = response.data.recommended_categories;
 
-  } catch (error) {
+  res.json({ categories });
 
-    console.error(error);
-    res.status(500).json({ message: "ML recommendation failed" });
-
-  }
-
+} catch (error) {
+  console.error("ML error:", error);
+  res.status(500).json({ message: "ML recommendation failed" });
+}
 });
 export default router;
