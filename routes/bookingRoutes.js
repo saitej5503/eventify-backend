@@ -24,6 +24,23 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Error registering" });
   }
 });
+// Unregister event
+router.delete("/unregister", async (req, res) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    const deletedBooking = await Booking.findOneAndDelete({ userId, eventId });
+
+    if (!deletedBooking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    res.json({ message: "Unregistered successfully" });
+
+  } catch (error) {
+    res.status(500).json({ message: "Error unregistering" });
+  }
+});
 
 // check booking
 router.get("/check/:userId/:eventId", async (req, res) => {
