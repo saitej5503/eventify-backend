@@ -11,13 +11,28 @@ import bookingRoutes from "./routes/bookingRoutes.js";
 dotenv.config();
 
 const app = express();
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://eventify-frontend-blyny6h4v-saitej5503s-projects.vercel.app",
+  "https://eventify-frontend-lilac.vercel.app",
+];
+
 app.use(
   cors({
-    origin: "https://eventify-frontend-blyny6h4v-saitej5503s-projects.vercel.app",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.use("/api/admin", adminRoutes);
