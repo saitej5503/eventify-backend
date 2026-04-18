@@ -1,6 +1,6 @@
 import express from "express";
 import User from "../models/User.js";
-
+import { sendMail } from "../services/mailer.js";
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
@@ -64,6 +64,22 @@ router.put("/update-interests/:id", async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ message: "Update failed" });
+  }
+});
+
+router.get("/test-mail", async (req, res) => {
+  try {
+    await sendMail({
+      to: "pulisettysaiteja@gmail.com",  // your email
+      subject: "Eventify Test Mail",
+      text: "Email is working successfully",
+      html: "<h2>✅ Email is working successfully</h2>",
+    });
+
+    res.json({ message: "Mail sent successfully" });
+  } catch (error) {
+    console.error("Mail error:", error);
+    res.status(500).json({ message: "Mail failed" });
   }
 });
 

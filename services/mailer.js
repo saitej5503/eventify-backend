@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -6,19 +6,21 @@ const transporter = nodemailer.createTransport({
   secure: Number(process.env.EMAIL_PORT) === 465,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
-transporter.verify().then(() => {
-  console.log('Mailer ready');
-}).catch(err => {
-  console.warn('Mailer verify failed:', err.message || err);
-});
+transporter
+  .verify()
+  .then(() => console.log("✅ Mailer ready"))
+  .catch((err) => console.warn("❌ Mailer verify failed:", err.message));
 
-async function sendMail({ to, subject, html, text, from = process.env.EMAIL_FROM }) {
-  const info = await transporter.sendMail({ from, to, subject, text, html });
-  return info;
-}
-
-module.exports = { sendMail };
+export const sendMail = async ({ to, subject, html, text }) => {
+  return transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject,
+    text,
+    html,
+  });
+};
