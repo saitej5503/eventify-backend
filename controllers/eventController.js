@@ -1,5 +1,6 @@
 import Event from "../models/Event.js";
 import axios from "axios";
+import { sendMail } from "../services/mailer.js";
 
 const getMainCategory = (category) => {
   if (!category) return "other";
@@ -113,29 +114,59 @@ export const getEventById = async (req, res) => {
 
 export const updateEventWinners = async (req, res) => {
   try {
+    const { id } = req.params;
     const { winners } = req.body;
 
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findById(id);
 
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
 
-    event.winners = winners || [];
-    event.resultStatus =
-      winners && winners.length > 0 ? "announced" : "pending";
+    event.winners = winners;
+    event.resultStatus = "announced";
 
     await event.save();
 
-    const formattedEvent = formatEventWithStatus(event);
+    // 🔥 Send email to winners
+    for (const winner of winners) {
+      try {
+        const user = await User.findById(winner.user);
 
-    res.status(200).json({
-      message: "Winners updated successfully",
-      event: formattedEvent,
-    });
+        if (user?.email) {
+          await sendMail({
+            to: user.email,
+            subject: `🎉 Congratulations! You won ${event.name}`,
+            text: `Congrats ${user.name}! You secured ${winner.position} place in ${event.name}`,
+            html: `
+              <div style="font-family: Arial;">
+                <h2 style="color:green;">🎉 Congratulations ${user.name}!</h2>
+                <p>You have secured <strong>${winner.position}</strong> place in:</p>
+
+                <div style="background:#f4f4f5; padding:15px; border-radius:10px;">
+                  <p><strong>Event:</strong> ${event.name}</p>
+                  <p><strong>Position:</strong> ${winner.position}</p>
+                  <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+                  <p><strong>Location:</strong> ${event.location}</p>
+                </div>
+
+                <p>Keep shining ✨<br/>Team Eventify</p>
+              </div>
+            `,
+          });
+
+          console.log("✅ Winner mail sent:", user.email);
+        }
+      } catch (err) {
+        console.error("❌ Winner mail failed:", err.message);
+      }
+    }
+
+    res.json({ message: "Winners updated & emails sent" });
+
   } catch (error) {
-    console.error("Error updating winners:", error);
-    res.status(500).json({ message: "Failed to update winners" });
+    console.error("Winner update error:", error);
+    res.status(500).json({ message: "Error updating winners" });
   }
 };
 
