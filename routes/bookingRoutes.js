@@ -1,14 +1,25 @@
 import express from "express";
 import Booking from "../models/Booking.js";
+import Event from "../models/Event.js";
+import User from "../models/User.js";
 
 const router = express.Router();
+
+const getEventStatus = (startDate, endDate) => {
+  const now = new Date();
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : new Date(startDate);
+
+  if (now < start) return "Upcoming";
+  if (now >= start && now <= end) return "Ongoing";
+  return "Completed";
+};
 
 // Register event
 router.post("/register", async (req, res) => {
   try {
     const { userId, eventId } = req.body;
 
-    // check if already booked
     const existing = await Booking.findOne({ userId, eventId });
 
     if (existing) {
@@ -18,12 +29,13 @@ router.post("/register", async (req, res) => {
     const booking = new Booking({ userId, eventId });
     await booking.save();
 
-    res.json({ message: "Registered successfully" });
-
+    res.json({ message: "Registered successfully", booking });
   } catch (error) {
+    console.error("Register booking error:", error);
     res.status(500).json({ message: "Error registering" });
   }
 });
+
 // Unregister event
 router.delete("/unregister", async (req, res) => {
   try {
@@ -36,13 +48,13 @@ router.delete("/unregister", async (req, res) => {
     }
 
     res.json({ message: "Unregistered successfully" });
-
   } catch (error) {
+    console.error("Unregister booking error:", error);
     res.status(500).json({ message: "Error unregistering" });
   }
 });
 
-// check booking
+// Check booking
 router.get("/check/:userId/:eventId", async (req, res) => {
   try {
     const { userId, eventId } = req.params;
@@ -50,19 +62,73 @@ router.get("/check/:userId/:eventId", async (req, res) => {
     const existing = await Booking.findOne({ userId, eventId });
 
     res.json({ registered: !!existing });
-
-  } catch {
-    res.status(500).json({ message: "Error" });
+  } catch (error) {
+    console.error("Check booking error:", error);
+    res.status(500).json({ message: "Error checking booking" });
   }
 });
 
-// ✅ get all bookings for a user (VERY IMPORTANT)
+// Get all bookings for a user with event details
 router.get("/:userId", async (req, res) => {
   try {
-    const bookings = await Booking.find({ userId: req.params.userId });
-    res.json(bookings);
+    const bookings = await Booking.find({ userId: req.params.userId }).sort({
+      _id: -1,
+    });
+
+    const enrichedBookings = await Promise.all(
+      bookings.map(async (booking) => {
+        const bookingObj = booking.toObject();
+
+        const event = await Event.findById(booking.eventId);
+
+        if (event) {
+          const eventObj = event.toObject();
+          eventObj.eventStatus = getEventStatus(eventObj.date, eventObj.endDate);
+          bookingObj.event = eventObj;
+        } else {
+          bookingObj.event = null;
+        }
+
+        return bookingObj;
+      })
+    );
+
+    res.json(enrichedBookings);
   } catch (error) {
+    console.error("Error fetching bookings:", error);
     res.status(500).json({ message: "Error fetching bookings" });
+  }
+});
+
+// ✅ Get all participants for a specific event
+router.get("/event/:eventId/participants", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    const bookings = await Booking.find({ eventId });
+
+    const participants = await Promise.all(
+      bookings.map(async (booking) => {
+        const user = await User.findById(booking.userId);
+
+        if (!user) return null;
+
+        return {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          department: user.department,
+          year: user.year,
+        };
+      })
+    );
+
+    const filteredParticipants = participants.filter(Boolean);
+
+    res.json(filteredParticipants);
+  } catch (error) {
+    console.error("Error fetching participants:", error);
+    res.status(500).json({ message: "Error fetching participants" });
   }
 });
 
