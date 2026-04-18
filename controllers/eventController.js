@@ -1,3 +1,4 @@
+import User from "../models/User.js";
 import Event from "../models/Event.js";
 import axios from "axios";
 import { sendMail } from "../services/mailer.js";
